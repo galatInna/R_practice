@@ -1,0 +1,74 @@
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load("randomNames”)
+
+df <- read.csv(file.path("heroku-demo","adult-data.csv"), strip.white=T, 
+               sep=",", header=F, na.strings=c("",".","NA","?","<NA>"))
+df_test <- read.csv(file.path("heroku-demo","adult-test.csv"), strip.white=T,
+                    header=F, skip=1, na.strings=c("",".","NA","?","<NA>"))
+col_names <- c("age", "workclass", "fnlwgt", "education", "education-num", "marital-status",
+               "occupation", "relationship", "race", "gender", "capital-gain",
+               "capital-loss", "hours-per-week", "native-country", "target")
+
+df["label"] <- "train"
+df_test["label"] <- "test"
+df <- rbind(df, df_test)
+colnames(df)[1:15] <- col_names
+rm(df_test, col_names)
+
+names <- matrix(ncol=3, nrow=nrow(df))
+for(i in 1:nrow(df)) {
+  gender <- -1
+  if (df[i, "gender"] == "Male") {
+    gender <- 0
+  } else if (df[i, "gender"] == "Female") {
+    gender <- 1
+  }
+  
+  # randomNames uses the following country codes:
+  #   1 American Indian or Native Alaskan 
+  #   2 Asian or Pacific Islander
+  #   3 Black (not Hispanic)
+  #   4 Hispanic
+  #   5 White (not Hispanic)
+  #   6 Middle-Eastern, Arabic
+  
+  code <- -1
+  if (df[i,"race"] == "White") { 
+    code <- 5
+  } else if (df[i,"race"] == "Black") {
+    code <- 3
+  } else if (df[i,"race"] == "Asian-Pac-Islander") {
+    code <- 2
+  } else if (df[i,"race"] == "Amer-Indian-Eskimo") {
+    code <- 1
+  } else if (df[i,"race"] == "Other") {
+    if (is.na(df[i,"native-country"])) {
+      code <- 5
+    } else if (df[i,"native-country"] %in% c("Puerto-Rico","Dominican-Republic","Mexico","Guatemala",
+                                             "Columbia","Ecuador","Nicaragua","El-Salvador","Cuba",
+                                             "Trinadad&Tobago","Peru","Honduras")) {
+      code <- 4
+    } else if (df[i,"native-country"] %in% c("United-States","Germany","Canada","South","England",
+                                             "Portugal","France")) {
+      code <- 5
+    } else if (df[i,"native-country"] == "Iran") {
+      code <- 6
+    } else if (df[i,"native-country"] == c("Jamaica")) {
+      code <- 3
+    } else if (df[i,"native-country"] %in% c("India","Taiwan","Japan")) {
+      code <- 2
+    }
+  }
+
+  temp <- randomNames(1, gender, code, which.names="both", name.order="first.last",
+                      sample.with.replacement=T, return.complete.data=T)
+  names[i,1] <- as.character(temp[,3])
+  names[i,2] <- as.character(temp[,4])
+  names[i,3] <- paste0(tolower(as.character(temp[,3])), ".", 
+                       tolower(as.character(temp[,4])), "@", "test.com")
+}
+
+df["First Name"] <- names[,1]
+df["Last Name"] <- names[,2]
+df["Email"] <- names[,3]
+rm(names,temp,code,gender,i)
